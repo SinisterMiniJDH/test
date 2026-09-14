@@ -27,11 +27,11 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path artifact | Out-Null
           Copy-Item EnemySense/bin/Release/net48/EnemySense.dll artifact/EnemySense.dll
-          Compress-Archive -Path artifact/EnemySense.dll -DestinationPath artifact/EnemySense-2.0.0.zip -Force
+          Compress-Archive -Path artifact/EnemySense.dll -DestinationPath artifact/EnemySense-2.0.1.zip -Force
 
       - uses: actions/upload-artifact@v4
         with:
-          name: EnemySense-2.0.0
+          name: EnemySense-2.0.1
           path: |
             artifact/EnemySense.dll
-            artifact/EnemySense-2.0.0.zip
+            artifact/EnemySense-2.0.1.zip
