@@ -12,39 +12,15 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
 
-      - name: Install SteamCMD
-        shell: pwsh
-        run: |
-          choco install steamcmd -y --no-progress
-          # SteamCMD may exit 1 after its first self-update/relaunch. That update is expected.
-          cmd /c "steamcmd +quit || exit /b 0"
-
-      - name: Install current Valheim dedicated server files
-        shell: pwsh
-        run: |
-          $install = Join-Path $env:RUNNER_TEMP 'valheim_server'
-          New-Item -ItemType Directory -Force -Path $install | Out-Null
-          steamcmd +force_install_dir $install +login anonymous +app_update 896660 -beta public validate +quit
-          if ($LASTEXITCODE -ne 0) { throw "SteamCMD failed to install Valheim dedicated server (exit $LASTEXITCODE)" }
-          $managed = Join-Path $install 'valheim_server_Data\Managed'
-          if (-not (Test-Path (Join-Path $managed 'assembly_valheim.dll'))) {
-            Get-ChildItem -Path $install -Recurse -Filter 'assembly_valheim.dll' | ForEach-Object { Write-Host $_.FullName }
-            throw "Could not find current Valheim assembly_valheim.dll"
-          }
-          "VALHEIM_MANAGED=$managed" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-
       - name: Restore
-        shell: pwsh
-        run: dotnet restore EnemySense/EnemySense.csproj -p:ValheimManagedDir="$env:VALHEIM_MANAGED"
+        run: dotnet restore EnemySense/EnemySense.csproj
 
       - name: Build
-        shell: pwsh
-        run: dotnet build EnemySense/EnemySense.csproj -c Release --no-restore -p:ValheimManagedDir="$env:VALHEIM_MANAGED"
+        run: dotnet build EnemySense/EnemySense.csproj -c Release --no-restore
 
       - name: Package
         shell: pwsh
