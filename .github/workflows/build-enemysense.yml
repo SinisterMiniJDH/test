@@ -12,19 +12,43 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+
+      - name: Install SteamCMD
+        shell: pwsh
+        run: choco install steamcmd -y --no-progress
+
+      - name: Install current Valheim dedicated server files
+        shell: pwsh
+        run: |
+          $install = Join-Path $env:RUNNER_TEMP 'valheim_server'
+          New-Item -ItemType Directory -Force -Path $install | Out-Null
+          steamcmd +force_install_dir $install +login anonymous +app_update 896660 validate +quit
+          $managed = Join-Path $install 'valheim_server_Data\Managed'
+          if (-not (Test-Path (Join-Path $managed 'assembly_valheim.dll'))) {
+            Get-ChildItem -Path $install -Recurse -Filter 'assembly_valheim.dll' | ForEach-Object { Write-Host $_.FullName }
+            throw "Could not find current Valheim assembly_valheim.dll"
+          }
+          "VALHEIM_MANAGED=$managed" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Restore
-        run: dotnet restore EnemySense/EnemySense.csproj
+        shell: pwsh
+        run: dotnet restore EnemySense/EnemySense.csproj -p:ValheimManagedDir="$env:VALHEIM_MANAGED"
+
       - name: Build
-        run: dotnet build EnemySense/EnemySense.csproj -c Release --no-restore
+        shell: pwsh
+        run: dotnet build EnemySense/EnemySense.csproj -c Release --no-restore -p:ValheimManagedDir="$env:VALHEIM_MANAGED"
+
       - name: Package
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path artifact | Out-Null
-          Copy-Item EnemySense/bin/Release/net462/EnemySense.dll artifact/EnemySense.dll
+          Copy-Item EnemySense/bin/Release/net48/EnemySense.dll artifact/EnemySense.dll
           Compress-Archive -Path artifact/EnemySense.dll -DestinationPath artifact/EnemySense-2.0.0.zip -Force
+
       - uses: actions/upload-artifact@v4
         with:
           name: EnemySense-2.0.0
