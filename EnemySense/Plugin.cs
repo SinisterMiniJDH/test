@@ -14,7 +14,7 @@ namespace EnemySense
     {
         public const string PluginGuid = "KZ.CreatureSense";
         public const string PluginName = "EnemySense";
-        public const string PluginVersion = "2.0.0";
+        public const string PluginVersion = "2.0.1";
 
         internal static ConfigEntry<float> BaseDetectionRange;
         internal static ConfigEntry<float> SkillMultiplier;
@@ -338,9 +338,35 @@ namespace EnemySense
     [HarmonyPatch(typeof(Player), nameof(Player.FixedUpdate))]
     internal static class PlayerFixedUpdatePatch
     {
+        private static readonly MethodInfo TakeInputMethod = AccessTools.Method(typeof(Player), "TakeInput");
+
+        private static bool CanTakeInput(Player player)
+        {
+            if (player == null)
+                return false;
+
+            try
+            {
+                if (TakeInputMethod == null)
+                    return true;
+                object result = TakeInputMethod.Invoke(player, null);
+                return result is bool canTakeInput && canTakeInput;
+            }
+            catch
+            {
+                // Never let a private/protected input API change spam FixedUpdate errors.
+                return true;
+            }
+        }
+
         private static void Postfix(Player __instance)
         {
-            if (__instance != Player.m_localPlayer || !__instance.TakeInput())
+            if (__instance != Player.m_localPlayer)
+                return;
+
+            Sonar.UpdatePins();
+
+            if (!CanTakeInput(__instance))
                 return;
 
             bool pressed;
@@ -352,8 +378,6 @@ namespace EnemySense
 
             if (pressed)
                 Sonar.Ping(__instance);
-
-            Sonar.UpdatePins();
         }
     }
 
