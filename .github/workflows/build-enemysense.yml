@@ -21,8 +21,8 @@ jobs:
         shell: pwsh
         run: |
           choco install steamcmd -y --no-progress
-          # First launch lets SteamCMD fully self-update before asking it to install an app.
-          steamcmd +quit
+          # SteamCMD may exit 1 after its first self-update/relaunch. That update is expected.
+          cmd /c "steamcmd +quit || exit /b 0"
 
       - name: Install current Valheim dedicated server files
         shell: pwsh
@@ -30,6 +30,7 @@ jobs:
           $install = Join-Path $env:RUNNER_TEMP 'valheim_server'
           New-Item -ItemType Directory -Force -Path $install | Out-Null
           steamcmd +force_install_dir $install +login anonymous +app_update 896660 validate +quit
+          if ($LASTEXITCODE -ne 0) { throw "SteamCMD failed to install Valheim dedicated server (exit $LASTEXITCODE)" }
           $managed = Join-Path $install 'valheim_server_Data\Managed'
           if (-not (Test-Path (Join-Path $managed 'assembly_valheim.dll'))) {
             Get-ChildItem -Path $install -Recurse -Filter 'assembly_valheim.dll' | ForEach-Object { Write-Host $_.FullName }
