@@ -3,11 +3,15 @@
     <TargetFramework>net48</TargetFramework>
     <AssemblyName>EnemySense</AssemblyName>
     <RootNamespace>EnemySense</RootNamespace>
-    <Version>2.0.1</Version>
+    <Version>2.0.2</Version>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <RestoreAdditionalProjectSources>https://api.nuget.org/v3/index.json;https://nuget.bepinex.dev/v3/index.json</RestoreAdditionalProjectSources>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Plugin.cs" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
