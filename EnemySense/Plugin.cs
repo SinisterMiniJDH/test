@@ -81,6 +81,26 @@ namespace EnemySense
         private static readonly FieldInfo HoverShowDurationField = AccessTools.Field(typeof(EnemyHud), "m_hoverShowDuration");
         private static readonly FieldInfo HudsField = AccessTools.Field(typeof(EnemyHud), "m_huds");
         private static readonly MethodInfo ShowHudMethod = AccessTools.Method(typeof(EnemyHud), "ShowHud");
+        private static readonly MethodInfo AddPinMethod = FindCompatibleAddPin();
+
+        private static MethodInfo FindCompatibleAddPin()
+        {
+            foreach (MethodInfo method in typeof(Minimap).GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+            {
+                if (method.Name != "AddPin")
+                    continue;
+                ParameterInfo[] p = method.GetParameters();
+                if (p.Length < 5)
+                    continue;
+                if (p[0].ParameterType == typeof(Vector3) &&
+                    p[1].ParameterType == typeof(Minimap.PinType) &&
+                    p[2].ParameterType == typeof(string) &&
+                    p[3].ParameterType == typeof(bool) &&
+                    p[4].ParameterType == typeof(bool))
+                    return method;
+            }
+            return null;
+        }
 
         internal static float GetRange(Player player)
         {
@@ -108,11 +128,7 @@ namespace EnemySense
             if (cost > 0f)
             {
                 if (!player.HaveStamina(cost))
-                {
-                    if (Hud.instance != null)
-                        Hud.instance.StaminaBarNoStaminaFlash();
                     return;
-                }
                 player.UseStamina(cost);
             }
 
@@ -150,7 +166,12 @@ namespace EnemySense
 
             try
             {
-                ShowHudMethod.Invoke(hud, new object[] { character, false });
+                ParameterInfo[] showHudParams = ShowHudMethod.GetParameters();
+                object[] showHudArgs = new object[showHudParams.Length];
+                if (showHudArgs.Length > 0) showHudArgs[0] = character;
+                for (int i = 1; i < showHudArgs.Length; i++)
+                    showHudArgs[i] = GetDefaultArgument(showHudParams[i]);
+                ShowHudMethod.Invoke(hud, showHudArgs);
 
                 object dictionaryObject = HudsField?.GetValue(hud);
                 if (dictionaryObject is IDictionary dictionary && dictionary.Contains(character))
@@ -172,6 +193,16 @@ namespace EnemySense
             }
         }
 
+        private static object GetDefaultArgument(ParameterInfo parameter)
+        {
+            if (parameter.HasDefaultValue && parameter.DefaultValue != DBNull.Value)
+                return parameter.DefaultValue;
+            Type type = parameter.ParameterType;
+            if (type.IsByRef)
+                type = type.GetElementType();
+            return type != null && type.IsValueType ? Activator.CreateInstance(type) : null;
+        }
+
         private static float GetRevealDuration()
         {
             if (EnemyHud.instance == null || HoverShowDurationField == null)
@@ -182,7 +213,7 @@ namespace EnemySense
 
         private static void AddOrRefreshPin(Character character)
         {
-            if (Minimap.instance == null)
+            if (Minimap.instance == null || AddPinMethod == null)
                 return;
 
             float expire = Time.time + GetRevealDuration();
@@ -194,10 +225,26 @@ namespace EnemySense
                 return;
             }
 
-            Minimap.PinData pin = Minimap.instance.AddPin(character.GetCenterPoint(), Minimap.PinType.RandomEvent,
-                "EnemySense", false, false);
-            if (pin != null)
-                Pins[character] = new TrackedPin { Character = character, Pin = pin, ExpireAt = expire };
+            try
+            {
+                ParameterInfo[] parameters = AddPinMethod.GetParameters();
+                object[] args = new object[parameters.Length];
+                args[0] = character.GetCenterPoint();
+                args[1] = Minimap.PinType.RandomEvent;
+                args[2] = "EnemySense";
+                args[3] = false;
+                args[4] = false;
+                for (int i = 5; i < args.Length; i++)
+                    args[i] = GetDefaultArgument(parameters[i]);
+
+                Minimap.PinData pin = AddPinMethod.Invoke(Minimap.instance, args) as Minimap.PinData;
+                if (pin != null)
+                    Pins[character] = new TrackedPin { Character = character, Pin = pin, ExpireAt = expire };
+            }
+            catch
+            {
+                // Pin API changes should never break the sonar itself.
+            }
         }
 
         internal static void UpdatePins()
