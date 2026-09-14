@@ -19,7 +19,10 @@ jobs:
 
       - name: Install SteamCMD
         shell: pwsh
-        run: choco install steamcmd -y --no-progress
+        run: |
+          choco install steamcmd -y --no-progress
+          # First launch lets SteamCMD fully self-update before asking it to install an app.
+          steamcmd +quit
 
       - name: Install current Valheim dedicated server files
         shell: pwsh
